@@ -20,9 +20,6 @@ def create_app() -> FastAPI:
     """
     settings = get_settings()
 
-    # Initialize database
-    init_db()
-
     app = FastAPI(
         title="API Key Management Service",
         description="Standalone service for managing API keys",
@@ -45,6 +42,11 @@ def create_app() -> FastAPI:
     async def health_check():
         """Health check endpoint for Docker and monitoring."""
         return {"status": "healthy"}
+
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize database on startup."""
+        await init_db()
 
     return app
 

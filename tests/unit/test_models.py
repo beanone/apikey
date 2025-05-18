@@ -1,8 +1,24 @@
 """Unit tests for the API key models."""
 
+import os
 from datetime import datetime, timezone
 
+import pytest
+
+from apikey.db import close_db, init_db
 from apikey.models import APIKey, APIKeyStatus, User
+
+
+@pytest.fixture(autouse=True)
+async def setup_teardown():
+    """Setup and teardown for each test."""
+    # Setup: Initialize DB with test configuration
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+    os.environ["SQL_ECHO"] = "false"
+    await init_db()
+    yield
+    # Teardown: Close DB connection
+    await close_db()
 
 
 def test_api_key_string_representation():
