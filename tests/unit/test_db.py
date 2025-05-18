@@ -1,16 +1,16 @@
 """Tests for database initialization and configuration."""
 
 import os
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
-from unittest.mock import AsyncMock, MagicMock, patch
-from contextlib import asynccontextmanager
 
 from apikey import db
-from apikey.db import init_db, close_db, get_async_session, DBState
-from apikey.models import Base
+from apikey.db import DBState, close_db, get_async_session, init_db
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,9 @@ async def test_table_creation():
     async with DBState.async_session_maker() as session:
         # Check if api_keys table exists
         result = await session.execute(
-            text("SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'")
+            text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'"
+            )
         )
         assert result.scalar() == "api_keys"
 
@@ -95,7 +97,7 @@ async def test_error_handling():
     """Test error handling in session management."""
     async with DBState.async_session_maker() as session:
         # Test invalid query
-        with pytest.raises(Exception):
+        with pytest.raises(OperationalError):
             await session.execute(text("SELECT * FROM nonexistent_table"))
 
 
@@ -145,11 +147,12 @@ async def test_get_async_session_error_handling():
     DBState.async_session_maker = mock_session_maker
 
     try:
+
         class CustomError(Exception):
             pass
 
         agen = get_async_session()
-        session = await agen.__anext__()
+        await agen.__anext__()
         with pytest.raises(CustomError):
             await agen.athrow(CustomError("Simulated error inside session context"))
 
@@ -200,7 +203,7 @@ async def test_init_db_async_sqlite_branch(monkeypatch):
     monkeypatch.setattr(db, "DB_URL", "sqlite:///:memory:")
     monkeypatch.setattr(db, "_is_async_sqlite", lambda x: True)
     # Patch create_async_engine to avoid real engine creation
-    with patch("apikey.db.create_async_engine", return_value=MagicMock()) as mock_engine:
+    with patch("apikey.db.create_async_engine", return_value=MagicMock()):
         # Patch async_sessionmaker to avoid real session creation
         with patch("apikey.db.async_sessionmaker", return_value=MagicMock()):
             DBState.engine = None

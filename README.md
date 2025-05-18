@@ -1,4 +1,4 @@
-# BeanOne API Key Router
+# API Key Management Library
 
 [![Python Versions](https://img.shields.io/pypi/pyversions/beanone-apikey)](https://pypi.org/project/beanone-apikey)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -7,7 +7,16 @@
 [![Code Quality](https://img.shields.io/badge/code%20style-ruff-000000)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/beanone-apikey)](https://pypi.org/project/beanone-apikey)
 
-A reusable FastAPI router for API key management, built on top of the userdb library.
+A library for API key management and JWT validation, designed to be integrated into services that need to handle API key operations and authentication.
+
+## Overview
+
+This library provides:
+- API key model and persistence
+- API key generation and validation
+- JWT validation
+- Key management endpoints
+- Database access layer
 
 ## Installation
 
@@ -29,9 +38,11 @@ app.include_router(api_key_router)
 
 - API key generation and management
 - API key validation
-- API key revocation
-- API key listing
-- Built on userdb for core functionality
+- JWT validation
+- API key listing and deletion
+- Secure key storage with hashing
+- Async database operations
+- FastAPI integration
 
 ## API Endpoints
 
@@ -39,53 +50,29 @@ app.include_router(api_key_router)
 |----------|--------|-------------|
 | `/api-keys/` | POST | Create a new API key |
 | `/api-keys/` | GET | List all API keys |
-| `/api-keys/{key_id}` | DELETE | Delete (revoke) an API key |
+| `/api-keys/{key_id}` | DELETE | Delete an API key |
 
-## Login Service Integration
+## Authentication
 
-This API key service is designed to work with the BeanOne login service. Here's how they integrate:
+The library supports two authentication methods:
 
-### Authentication Flow
+1. **JWT Authentication**
+   - Validates JWTs issued by the login service
+   - Extracts user information from JWT claims
+   - Supports audience validation
 
-1. Users first authenticate through the login service
-2. After successful login, users can generate API keys
-3. API keys are associated with the authenticated user's account
-4. API keys can be used for programmatic access to protected endpoints
+2. **API Key Authentication**
+   - Validates API keys in requests
+   - Supports both header and query parameter authentication
+   - Checks key status and expiration
 
-### Dependencies
+## Configuration
 
-The API key service requires:
-- A running instance of the BeanOne login service
-- Valid JWT tokens from the login service for authentication
-- User information from the login service for API key association
-
-### Configuration
-
-To configure the integration with the login service:
-
-```python
-from fastapi import FastAPI
-from apikey import api_key_router, LoginServiceConfig
-
-app = FastAPI()
-
-# Configure login service integration
-login_config = LoginServiceConfig(
-    login_service_url="https://login.beanone.com",  # Your login service URL
-    jwt_secret="your-jwt-secret",                   # Shared JWT secret
-    user_info_endpoint="/api/v1/user"              # Endpoint to fetch user info
-)
-
-# Include the router with login service configuration
-app.include_router(api_key_router, login_config=login_config)
-```
-
-### Security
-
-- All API key endpoints require valid JWT tokens from the login service
-- API keys are scoped to the user's permissions from the login service
-- API key operations are logged and audited
-- Revoked API keys are immediately invalidated
+Environment variables:
+- `DATABASE_URL`: Database connection URL (default: sqlite+aiosqlite:///./apikey.db)
+- `JWT_SECRET`: Secret for JWT validation
+- `JWT_ALGORITHM`: JWT algorithm (default: HS256)
+- `LOCKSMITHA_URL`: Login service URL (default: http://localhost:8001)
 
 ## Development
 
@@ -98,6 +85,26 @@ app.include_router(api_key_router, login_config=login_config)
    ```bash
    pytest
    ```
+
+## Architecture
+
+This library is designed to be integrated into services that need to:
+- Manage API keys for their users
+- Validate incoming requests using either JWTs or API keys
+- Store and manage API key data
+
+The library follows a distributed API key management pattern where:
+- Each service maintains its own API key database
+- API key validation is performed locally
+- JWT validation is performed against the login service
+
+## Security
+
+- API keys are hashed before storage
+- JWT validation includes audience checks
+- API key validation checks status and expiration
+- All endpoints require authentication
+- Database operations use parameterized queries
 
 ## License
 

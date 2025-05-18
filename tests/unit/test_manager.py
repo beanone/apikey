@@ -1,11 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, Mock
-from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apikey.manager import create_api_key, delete_api_key, list_api_keys, create_api_key_record
+from apikey.manager import (
+    create_api_key,
+    create_api_key_record,
+    delete_api_key,
+    list_api_keys,
+)
 from apikey.models import APIKey, APIKeyStatus
 
 

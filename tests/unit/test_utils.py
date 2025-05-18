@@ -1,5 +1,4 @@
-import pytest
-from apikey.utils import hash_api_key, generate_api_key
+from apikey.utils import generate_api_key, hash_api_key
 
 
 def test_hash_api_key():
@@ -14,4 +13,6 @@ def test_generate_api_key():
     result = generate_api_key()
     assert result
     assert isinstance(result, str)
-    assert result != generate_api_key()  # Different calls should produce different outputs
+    assert (
+        result != generate_api_key()
+    )  # Different calls should produce different outputs

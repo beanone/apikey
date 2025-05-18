@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_async_session
-from .dependencies import User, get_current_user
+from .dependencies import get_current_user
 from .manager import create_api_key as handler_create_api_key
 from .manager import delete_api_key as handler_delete_api_key
 from .manager import list_api_keys as handler_list_api_keys

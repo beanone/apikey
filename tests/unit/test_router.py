@@ -11,8 +11,8 @@ from httpx import ASGITransport, AsyncClient
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apikey.dependencies import get_current_user
 from apikey.db import get_async_session
+from apikey.dependencies import get_current_user
 from apikey.models import APIKey
 from apikey.router import api_key_router
 
@@ -220,7 +220,9 @@ async def test_delete_api_key_not_found(
 @pytest.mark.asyncio
 @patch("apikey.dependencies.jwt.decode")
 @patch("apikey.dependencies.get_async_session")
-async def test_get_current_user_success(mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI) -> None:
+async def test_get_current_user_success(
+    mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI
+) -> None:
     """Test successful user authentication."""
     mock_jwt_decode.return_value = {
         "sub": "user-123",
@@ -250,7 +252,9 @@ async def test_get_current_user_success(mock_get_async_session: Mock, mock_jwt_d
 @pytest.mark.asyncio
 @patch("apikey.dependencies.jwt.decode")
 @patch("apikey.dependencies.get_async_session")
-async def test_get_current_user_missing_sub(mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI) -> None:
+async def test_get_current_user_missing_sub(
+    mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI
+) -> None:
     """Test authentication with missing sub claim."""
     mock_jwt_decode.return_value = {
         "email": "test@example.com",
@@ -277,7 +281,9 @@ async def test_get_current_user_missing_sub(mock_get_async_session: Mock, mock_j
 @pytest.mark.asyncio
 @patch("apikey.dependencies.jwt.decode")
 @patch("apikey.dependencies.get_async_session")
-async def test_get_current_user_jwt_error(mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI) -> None:
+async def test_get_current_user_jwt_error(
+    mock_get_async_session: Mock, mock_jwt_decode: Mock, app: FastAPI
+) -> None:
     """Test authentication with JWT decode error."""
     mock_jwt_decode.side_effect = JWTError("Invalid token")
     mock_session = AsyncMock()

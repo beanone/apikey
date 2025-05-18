@@ -2,6 +2,7 @@
 
 import logging
 import os
+from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -21,6 +22,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{LOCKSMITHA_URL}/auth/jwt/login"
 JWT_SECRET = os.getenv("JWT_SECRET", "changeme")  # Should match Locksmitha's secret
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
+# Dependencies
+get_token = Depends(oauth2_scheme)
+get_db_session = Depends(get_async_session)
 
 API_KEY_HEADER = "X-API-Key"
 API_KEY_QUERY = "api_key"
@@ -28,14 +32,15 @@ API_KEY_QUERY = "api_key"
 
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_async_session),
+    token: str = get_token,
+    session: AsyncSession = get_db_session,
 ) -> User:
     """Get the current authenticated user from JWT.
 
     Args:
         request: The FastAPI request.
         token: The JWT token.
+        session: The database session.
 
     Returns:
         User information from JWT.
@@ -84,6 +89,14 @@ async def get_current_user(
 
 
 async def get_api_key_from_request(request: Request) -> str | None:
+    """Get API key from request headers or query parameters.
+
+    Args:
+        request: The FastAPI request.
+
+    Returns:
+        The API key if found, None otherwise.
+    """
     api_key = request.headers.get(API_KEY_HEADER)
     if api_key:
         return api_key
@@ -91,9 +104,19 @@ async def get_api_key_from_request(request: Request) -> str | None:
     return api_key
 
 
-async def validate_api_key(api_key: str, session: AsyncSession) -> dict:
-    from datetime import UTC, datetime
+async def validate_api_key(api_key: str, session: AsyncSession) -> dict[str, str]:
+    """Validate an API key.
 
+    Args:
+        api_key: The API key to validate.
+        session: The database session.
+
+    Returns:
+        Dict containing user_id and api_key_id.
+
+    Raises:
+        HTTPException: If the API key is invalid or expired.
+    """
     key_hash = hash_api_key(api_key)
     stmt = select(APIKey).where(APIKey.key_hash == key_hash, APIKey.status == "active")
     result = await session.execute(stmt)
@@ -103,7 +126,7 @@ async def validate_api_key(api_key: str, session: AsyncSession) -> dict:
         raise HTTPException(status_code=401, detail="Invalid API key")
     # Optionally check expiry
     if api_key_obj.expires_at is not None and api_key_obj.expires_at < datetime.now(
-        UTC
+        timezone.utc
     ):
         logger.warning("API key expired.")
         raise HTTPException(status_code=401, detail="API key expired")

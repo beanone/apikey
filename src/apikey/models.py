@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TypedDict
 
@@ -60,18 +60,18 @@ class APIKey(Base):
     user_id = Column(String(36), nullable=False)
     key_hash = Column(String, nullable=False, unique=True)
     name = Column(String)
-    created_at = Column(DateTime, default=datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
     service_id = Column(String, nullable=False)
     status = Column(SQLEnum(APIKeyStatus), default=APIKeyStatus.ACTIVE, nullable=False)
     expires_at = Column(DateTime, nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     __table_args__ = (Index("ix_api_keys_user_id", "user_id"),)
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         user_id: str,
         key_hash: str,
-        service_id: str = "home-service",
+        service_id: str,
         name: str | None = None,
         status: APIKeyStatus = APIKeyStatus.ACTIVE,
         expires_at: datetime | None = None,
@@ -102,7 +102,7 @@ class APIKey(Base):
         self.user_id = user_id
         self.key_hash = key_hash
         self.name = name
-        self.created_at = created_at or datetime.now(UTC)
+        self.created_at = created_at or datetime.now(timezone.utc)
         self.service_id = service_id
         self.status = status
         self.expires_at = expires_at

@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import QueuePool
+
 from .models import Base, DBState
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,8 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """Get a database session.
 
     Returns:
-        AsyncGenerator[AsyncSession, None]: An async generator yielding database sessions
+        AsyncGenerator[AsyncSession, None]: An async generator yielding database
+        sessions
 
     Raises:
         RuntimeError: If database is not initialized

@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +8,7 @@ from .models import APIKey, APIKeyStatus
 from .utils import generate_api_key, hash_api_key
 
 
-def create_api_key_record(
+def create_api_key_record(  # noqa: PLR0913
     user_id: str,
     service_id: str = "home-service",
     name: str | None = None,
@@ -21,15 +22,15 @@ def create_api_key_record(
     """Generate a new API key, hash it, and create an APIKey record.
 
     Args:
-        user_id (str): The user ID.
-        service_id (str): The target service ID. Defaults to "home-service".
-        name (str | None): Optional label for the key.
-        status (APIKeyStatus): Key status (default ACTIVE).
-        expires_at (datetime | None): Optional expiry.
-        last_used_at (datetime | None): Optional last used.
-        id (str | None): Optional key ID.
-        created_at (datetime | None): Optional creation time.
-        key_length (int): Length of the generated API key.
+        user_id: The user ID.
+        service_id: The target service ID.
+        name: Optional label for the key.
+        status: Key status (default ACTIVE).
+        expires_at: Optional expiry.
+        last_used_at: Optional last used.
+        id: Optional key ID.
+        created_at: Optional creation time.
+        key_length: Length of the generated API key.
 
     Returns:
         tuple[str, APIKey]: (plaintext API key, APIKey record with hash)
@@ -44,7 +45,7 @@ def create_api_key_record(
             created_at.replace(tzinfo=None) if created_at.tzinfo else created_at
         )
     else:
-        final_created_at = datetime.now(UTC).replace(tzinfo=None)
+        final_created_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Ensure expires_at is naive UTC if provided
     final_expires_at: datetime | None = None
@@ -80,15 +81,15 @@ async def create_api_key(
     session: AsyncSession,
     name: str | None = None,
     expires_at: datetime | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Create a new API key for the given user.
 
     Args:
-        user_id (str): The user's stringified UUID.
-        service_id (str): The service identifier.
-        session (AsyncSession): SQLAlchemy async session.
-        name (Optional[str]): Optional name for the key.
-        expires_at (Optional[datetime]): Optional expiration.
+        user_id: The user's stringified UUID.
+        service_id: The service identifier.
+        session: SQLAlchemy async session.
+        name: Optional name for the key.
+        expires_at: Optional expiration.
 
     Returns:
         dict: API key info including plaintext key.
@@ -117,12 +118,12 @@ async def create_api_key(
 async def list_api_keys(
     user_id: str,
     session: AsyncSession,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List all API keys for the given user.
 
     Args:
-        user_id (str): The user's stringified UUID.
-        session (AsyncSession): SQLAlchemy async session.
+        user_id: The user's stringified UUID.
+        session: SQLAlchemy async session.
 
     Returns:
         List[dict]: List of API key info dicts.
@@ -151,9 +152,9 @@ async def delete_api_key(
     """Delete (revoke) an API key by ID for the given user.
 
     Args:
-        key_id (str): The API key ID.
-        user_id (str): The user's stringified UUID.
-        session (AsyncSession): SQLAlchemy async session.
+        key_id: The API key ID.
+        user_id: The user's stringified UUID.
+        session: SQLAlchemy async session.
 
     Returns:
         bool: True if deleted, False if not found.
