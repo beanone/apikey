@@ -74,6 +74,13 @@ Environment variables:
 - `JWT_ALGORITHM`: JWT algorithm (default: HS256)
 - `LOGIN_URL`: Login service URL (default: http://localhost:8001)
 
+### Database Configuration
+- For development: SQLite (default)
+- For production: PostgreSQL
+  - `POSTGRES_USER`: Database user (default: postgres)
+  - `POSTGRES_PASSWORD`: Database password (default: password)
+  - `POSTGRES_DB`: Database name (default: apikeydb)
+
 ## Development
 
 1. Clone the repository
@@ -85,6 +92,91 @@ Environment variables:
    ```bash
    pytest
    ```
+
+## Starting a New Development Instance
+
+1. **Set up the environment**
+   ```bash
+   # Create and activate virtual environment
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+   # Install dependencies
+   pip install -r requirements.txt
+   pip install -r requirements-test.txt
+   ```
+
+2. **Configure environment variables**
+   Create a `.env` file in the project root:
+   ```bash
+   # Database configuration
+   DATABASE_URL=sqlite+aiosqlite:///./apikey.db  # For local development
+   # DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/apikeydb  # For PostgreSQL
+
+   # JWT configuration
+   JWT_SECRET=your-secret-key
+   JWT_ALGORITHM=HS256
+   LOGIN_URL=http://localhost:8001
+
+   # Optional: PostgreSQL configuration
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=password
+   POSTGRES_DB=apikeydb
+   ```
+
+3. **Start the development server**
+   ```bash
+   # Using uvicorn directly
+   uvicorn src.apikey.service:app --reload --port 8002
+
+   # Or using Docker Compose for development
+   docker-compose -f docker-compose.dev.yml up -d
+   ```
+
+4. **Verify the setup**
+   - Check the health endpoint: `http://localhost:8002/health`
+   - Access the API documentation: `http://localhost:8002/docs`
+   - Run the test suite: `pytest`
+
+5. **Development workflow**
+   - The server will automatically reload on code changes
+   - Use the API documentation to test endpoints
+   - Check logs: `docker-compose -f docker-compose.dev.yml logs -f apikey`
+
+## Docker Deployment
+
+### Production Deployment
+
+1. Create a `.env` file with required environment variables
+2. Run with Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+The service will be available at `http://localhost:8002`
+
+### Development Deployment
+
+1. Create a `.env` file with required environment variables
+2. Run with development Docker Compose:
+   ```bash
+   docker-compose -f docker-compose.dev.yml up -d
+   ```
+
+Development features:
+- Hot reload enabled
+- Source code mounted for live updates
+- PostgreSQL database with persistent volume
+- Health checks configured
+
+### Docker Configuration
+
+- Service runs on port 8002
+- Health check endpoint: `/health`
+- Resource limits:
+  - CPU: 0.5 cores
+  - Memory: 512MB
+- Logging: JSON format with rotation (10MB max, 3 files)
 
 ## Architecture
 
@@ -105,6 +197,9 @@ The library follows a distributed API key management pattern where:
 - API key validation checks status and expiration
 - All endpoints require authentication
 - Database operations use parameterized queries
+- Non-root user in Docker container
+- Resource limits enforced
+- Health checks implemented
 
 ## License
 

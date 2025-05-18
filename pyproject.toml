@@ -27,11 +27,15 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "beanone-userdb>=0.1.0",
     "python-jose[cryptography]>=3.3.0",
+    "uvicorn>=0.24.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/beanone/apikey.git"
 Repository = "https://github.com/beanone/apikey.git"
+
+[project.scripts]
+apikey-service = "apikey.cli:main"
 
 [project.optional-dependencies]
 dev = [

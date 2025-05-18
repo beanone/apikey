@@ -1,0 +1,232 @@
+{
+    "info": {
+        "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "API Key Management Service",
+        "description": "Collection for testing the API Key Management Service endpoints",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Login",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}"
+                },
+                "url": {
+                    "raw": "{{login_url}}/auth/jwt/login",
+                    "host": [
+                        "{{login_url}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "jwt",
+                        "login"
+                    ]
+                },
+                "description": "Login to get JWT token"
+            },
+            "response": []
+        },
+        {
+            "name": "Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/health",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "health"
+                    ]
+                },
+                "description": "Check if the service is healthy"
+            },
+            "response": []
+        },
+        {
+            "name": "Create API Key",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": \"test-service\",\n    \"name\": \"Test API Key\",\n    \"expires_at\": \"2024-12-31T23:59:59Z\"\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        ""
+                    ]
+                },
+                "description": "Create a new API key for the authenticated user"
+            },
+            "response": []
+        },
+        {
+            "name": "List API Keys",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        ""
+                    ]
+                },
+                "description": "List all API keys for the authenticated user"
+            },
+            "response": []
+        },
+        {
+            "name": "Delete API Key",
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/{{api_key_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        "{{api_key_id}}"
+                    ]
+                },
+                "description": "Delete (revoke) an API key by ID"
+            },
+            "response": []
+        },
+        {
+            "name": "API Key Authentication",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-API-Key",
+                        "value": "{{api_key}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        ""
+                    ]
+                },
+                "description": "Test API key authentication"
+            },
+            "response": []
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Test script for login response\nif (pm.response.code === 200) {\n    var jsonData = pm.response.json();\n    pm.environment.set(\"jwt_token\", jsonData.access_token);\n}"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8002",
+            "type": "string"
+        },
+        {
+            "key": "login_url",
+            "value": "http://localhost:8001",
+            "type": "string"
+        },
+        {
+            "key": "username",
+            "value": "your-username",
+            "type": "string"
+        },
+        {
+            "key": "password",
+            "value": "your-password",
+            "type": "string"
+        },
+        {
+            "key": "jwt_token",
+            "value": "your-jwt-token-here",
+            "type": "string"
+        },
+        {
+            "key": "api_key",
+            "value": "your-api-key-here",
+            "type": "string"
+        },
+        {
+            "key": "api_key_id",
+            "value": "your-api-key-id-here",
+            "type": "string"
+        }
+    ]
+}

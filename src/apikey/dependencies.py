@@ -3,10 +3,12 @@
 import logging
 import os
 from datetime import datetime, timezone
+from typing import ClassVar
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from pydantic_settings import BaseSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,11 +18,42 @@ from .utils import hash_api_key
 
 logger = logging.getLogger(__name__)
 
+
+class Settings(BaseSettings):
+    """Application settings.
+
+    Attributes:
+        cors_origins: List of allowed CORS origins
+        login_url: URL of the login service
+        jwt_secret: Secret for JWT signing
+        jwt_algorithm: Algorithm for JWT signing
+    """
+
+    cors_origins: ClassVar[list[str]] = ["*"]
+    login_url: str = os.getenv("LOGIN_URL", "http://localhost:8001")
+    jwt_secret: str = os.getenv("JWT_SECRET", "changeme")
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+
+    class Config:
+        """Pydantic config."""
+
+        env_prefix = "APIKEY_"
+
+
+def get_settings() -> Settings:
+    """Get application settings.
+
+    Returns:
+        Settings: Application settings instance.
+    """
+    return Settings()
+
+
 # Configuration
-LOGIN_URL = os.getenv("LOGIN_URL", "http://localhost:8001")
+LOGIN_URL = get_settings().login_url
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{LOGIN_URL}/auth/jwt/login")
-JWT_SECRET = os.getenv("JWT_SECRET", "changeme")  # Should match Locksmitha's secret
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_SECRET = get_settings().jwt_secret
+ALGORITHM = get_settings().jwt_algorithm
 
 # Dependencies
 get_token = Depends(oauth2_scheme)

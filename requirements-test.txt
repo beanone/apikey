@@ -9,3 +9,4 @@ aiosqlite>=0.19.0
 pytest-httpserver>=1.0.0
 coverage>=7.0.0
 pre-commit>=3.5.0
+fastapi>=0.100.0
