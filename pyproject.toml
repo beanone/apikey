@@ -3,21 +3,19 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fastapi-apikey-router"
+name = "beanone-apikey"
 dynamic = ["version"]
 description = "A reusable FastAPI router for API key management"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Bean One", email = "non.existent@beanone.net" }
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Framework :: FastAPI",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -32,8 +30,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/fastapi-apikey-router"
-Repository = "https://github.com/yourusername/fastapi-apikey-router"
+Homepage = "https://github.com/beanone/apikey.git"
+Repository = "https://github.com/beanone/apikey.git"
 
 [project.optional-dependencies]
 dev = [
