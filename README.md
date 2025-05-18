@@ -72,7 +72,7 @@ Environment variables:
 - `DATABASE_URL`: Database connection URL (default: sqlite+aiosqlite:///./apikey.db)
 - `JWT_SECRET`: Secret for JWT validation
 - `JWT_ALGORITHM`: JWT algorithm (default: HS256)
-- `LOCKSMITHA_URL`: Login service URL (default: http://localhost:8001)
+- `LOGIN_URL`: Login service URL (default: http://localhost:8001)
 
 ## Development
 

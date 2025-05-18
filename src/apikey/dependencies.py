@@ -17,8 +17,8 @@ from .utils import hash_api_key
 logger = logging.getLogger(__name__)
 
 # Configuration
-LOCKSMITHA_URL = os.getenv("LOCKSMITHA_URL", "http://localhost:8001")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{LOCKSMITHA_URL}/auth/jwt/login")
+LOGIN_URL = os.getenv("LOGIN_URL", "http://localhost:8001")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{LOGIN_URL}/auth/jwt/login")
 JWT_SECRET = os.getenv("JWT_SECRET", "changeme")  # Should match Locksmitha's secret
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
