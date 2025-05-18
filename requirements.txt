@@ -1,7 +1,6 @@
 fastapi>=0.104.0
 pydantic>=2.0.0
 sqlalchemy>=2.0.0
-beanone-userdb>=0.1.0
 python-jose[cryptography]>=3.3.0
 aiosqlite>=0.19.0
 python-multipart>=0.0.6
