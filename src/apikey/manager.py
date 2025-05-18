@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from .utils import generate_api_key, hash_api_key
 
 def create_api_key_record(
     user_id: str,
-    service_id: str,
+    service_id: str = "home-service",
     name: str | None = None,
     status: APIKeyStatus = APIKeyStatus.ACTIVE,
     expires_at: datetime | None = None,
@@ -22,7 +22,7 @@ def create_api_key_record(
 
     Args:
         user_id (str): The user ID.
-        service_id (str): The target service ID.
+        service_id (str): The target service ID. Defaults to "home-service".
         name (str | None): Optional label for the key.
         status (APIKeyStatus): Key status (default ACTIVE).
         expires_at (datetime | None): Optional expiry.

@@ -2,7 +2,7 @@
 
 import logging
 import os
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import QueuePool
-
 from .models import Base, DBState
 
 logger = logging.getLogger(__name__)
@@ -103,9 +102,15 @@ async def close_db() -> None:
     This function:
     1. Closes the database engine
     2. Clears the DBState
+
+    Note: This function will clear the DBState even if disposal fails.
     """
     if DBState.engine is not None:
-        await DBState.engine.dispose()
-        DBState.engine = None
-        DBState.async_session_maker = None
-        logger.info("Database connection closed")
+        try:
+            await DBState.engine.dispose()
+        except Exception as e:
+            logger.error(f"Error during database disposal: {e}")
+        finally:
+            DBState.engine = None
+            DBState.async_session_maker = None
+            logger.info("Database connection closed")

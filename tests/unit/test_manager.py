@@ -1,11 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, Mock
+from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apikey.manager import create_api_key, delete_api_key, list_api_keys
-from apikey.models import APIKey
+from apikey.manager import create_api_key, delete_api_key, list_api_keys, create_api_key_record
+from apikey.models import APIKey, APIKeyStatus
 
 
 @pytest.fixture
@@ -113,3 +114,117 @@ async def test_delete_api_key_not_found(fake_user_id):
     )
     assert result is False
     mock_db_session.execute.assert_awaited_once()
+
+
+def test_create_api_key_record_basic() -> None:
+    """Test basic API key record creation with minimal parameters."""
+    user_id = "user-123"
+
+    plaintext_key, record = create_api_key_record(
+        user_id=user_id,
+    )
+
+    assert isinstance(plaintext_key, str)
+    assert len(plaintext_key) == 40  # Default key length
+    assert isinstance(record, APIKey)
+    assert record.user_id == user_id
+    assert record.service_id == "home-service"  # Verify default service_id
+    assert record.status == APIKeyStatus.ACTIVE
+    assert record.name is None
+    assert record.expires_at is None
+    assert record.last_used_at is None
+    assert record.id is not None
+    assert isinstance(record.created_at, datetime)
+    assert record.created_at.tzinfo is None  # Should be naive UTC
+
+
+def test_create_api_key_service_id_null() -> None:
+    """Test basic API key record creation with minimal parameters."""
+    user_id = "user-123"
+
+    with pytest.raises(ValueError):
+        APIKey(
+            user_id=user_id,
+            service_id=None,
+            key_hash="fake_hashed_key",
+        )
+
+
+def test_create_api_key_record_with_all_params() -> None:
+    """Test API key record creation with all optional parameters."""
+    user_id = "user-123"
+    service_id = "svc-123"
+    name = "Test Key"
+    status = APIKeyStatus.INACTIVE
+    key_id = "key-123"
+    created_at = datetime.now(timezone.utc)
+    expires_at = created_at + timedelta(days=30)
+    last_used_at = created_at + timedelta(hours=1)
+    key_length = 32
+
+    plaintext_key, record = create_api_key_record(
+        user_id=user_id,
+        service_id=service_id,
+        name=name,
+        status=status,
+        expires_at=expires_at,
+        last_used_at=last_used_at,
+        id=key_id,
+        created_at=created_at,
+        key_length=key_length,
+    )
+
+    assert isinstance(plaintext_key, str)
+    assert len(plaintext_key) == key_length
+    assert isinstance(record, APIKey)
+    assert record.user_id == user_id
+    assert record.service_id == service_id
+    assert record.status == status
+    assert record.name == name
+    assert record.id == key_id
+    assert record.created_at == created_at.replace(tzinfo=None)
+    assert record.expires_at == expires_at.replace(tzinfo=None)
+    assert record.last_used_at == last_used_at.replace(tzinfo=None)
+
+
+def test_create_api_key_record_timezone_handling() -> None:
+    """Test timezone handling in API key record creation."""
+    # Test with timezone-aware datetime
+    tz_aware = datetime.now(timezone.utc)
+    _, record = create_api_key_record(
+        user_id="user-123",
+        service_id="svc-123",
+        created_at=tz_aware,
+        expires_at=tz_aware,
+        last_used_at=tz_aware,
+    )
+
+    assert record.created_at.tzinfo is None
+    assert record.expires_at.tzinfo is None
+    assert record.last_used_at.tzinfo is None
+
+    # Test with naive datetime
+    naive = datetime.now()
+    _, record = create_api_key_record(
+        user_id="user-123",
+        service_id="svc-123",
+        created_at=naive,
+        expires_at=naive,
+        last_used_at=naive,
+    )
+
+    assert record.created_at == naive
+    assert record.expires_at == naive
+    assert record.last_used_at == naive
+
+
+def test_create_api_key_record_custom_key_length() -> None:
+    """Test API key record creation with custom key length."""
+    key_length = 64
+    plaintext_key, _ = create_api_key_record(
+        user_id="user-123",
+        service_id="svc-123",
+        key_length=key_length,
+    )
+
+    assert len(plaintext_key) == key_length

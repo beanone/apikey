@@ -71,7 +71,7 @@ class APIKey(Base):
         self,
         user_id: str,
         key_hash: str,
-        service_id: str,
+        service_id: str = "home-service",
         name: str | None = None,
         status: APIKeyStatus = APIKeyStatus.ACTIVE,
         expires_at: datetime | None = None,
