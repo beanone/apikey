@@ -7,6 +7,7 @@ while still maintaining the library functionality for use in other applications.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apikey.db import init_db
 from apikey.dependencies import get_settings
 from apikey.router import api_key_router
 
@@ -18,6 +19,9 @@ def create_app() -> FastAPI:
         FastAPI: Configured FastAPI application instance.
     """
     settings = get_settings()
+
+    # Initialize database
+    init_db()
 
     app = FastAPI(
         title="API Key Management Service",

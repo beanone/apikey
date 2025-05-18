@@ -70,6 +70,8 @@ The library supports two authentication methods:
 
 Environment variables:
 - `DATABASE_URL`: Database connection URL (default: sqlite+aiosqlite:///./apikey.db)
+  - For development: `sqlite+aiosqlite:///./apikey.db`
+  - For production: `postgresql+asyncpg://user:password@host:5432/dbname`
 - `JWT_SECRET`: Secret for JWT validation
 - `JWT_ALGORITHM`: JWT algorithm (default: HS256)
 - `LOGIN_URL`: Login service URL (default: http://localhost:8001)
@@ -77,9 +79,8 @@ Environment variables:
 ### Database Configuration
 - For development: SQLite (default)
 - For production: PostgreSQL
-  - `POSTGRES_USER`: Database user (default: postgres)
-  - `POSTGRES_PASSWORD`: Database password (default: password)
-  - `POSTGRES_DB`: Database name (default: apikeydb)
+  - Use the full connection URL in `DATABASE_URL`
+  - Example: `postgresql+asyncpg://postgres:password@localhost:5432/apikeydb`
 
 ## Development
 
@@ -111,17 +112,12 @@ Environment variables:
    ```bash
    # Database configuration
    DATABASE_URL=sqlite+aiosqlite:///./apikey.db  # For local development
-   # DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/apikeydb  # For PostgreSQL
+   # DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5433/apikeydb  # For PostgreSQL with Docker
 
-   # JWT configuration
-   JWT_SECRET=your-secret-key
+   # JWT configuration: should match that of the Login service
+   JWT_SECRET=supersecretjwtkey
    JWT_ALGORITHM=HS256
    LOGIN_URL=http://localhost:8001
-
-   # Optional: PostgreSQL configuration
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=password
-   POSTGRES_DB=apikeydb
    ```
 
 3. **Start the development server**
@@ -130,7 +126,8 @@ Environment variables:
    uvicorn src.apikey.service:app --reload --port 8002
 
    # Or using Docker Compose for development
-   docker-compose -f docker-compose.dev.yml up -d
+   docker compose -f docker-compose.dev.yml build --no-cache
+   docker compose -f docker-compose.dev.yml up
    ```
 
 4. **Verify the setup**
@@ -160,7 +157,7 @@ The service will be available at `http://localhost:8002`
 1. Create a `.env` file with required environment variables
 2. Run with development Docker Compose:
    ```bash
-   docker-compose -f docker-compose.dev.yml up -d
+   docker compose -f docker-compose.dev.yml up -d
    ```
 
 Development features:

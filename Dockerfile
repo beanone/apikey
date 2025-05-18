@@ -10,8 +10,11 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Then copy application code
-COPY src/ src/
+# Copy the entire repository for package installation
+COPY . .
+
+# Install the package in development mode
+RUN pip install -e .
 
 # Add non-root user
 RUN adduser --disabled-password --gecos "" appuser

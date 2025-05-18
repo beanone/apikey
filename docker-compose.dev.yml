@@ -30,9 +30,6 @@ services:
         max-file: "3"
     networks:
       - app_network
-    depends_on:
-      db:
-        condition: service_healthy
 
   db:
     image: postgres:15
@@ -41,7 +38,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-apikeydb}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data  # Persist database data
     healthcheck:
@@ -64,6 +61,8 @@ services:
         max-file: "3"
     networks:
       - app_network
+    profiles:
+      - postgres
 
 volumes:
   postgres_data:  # Define named volume for database persistence

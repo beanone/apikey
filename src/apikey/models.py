@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TypedDict
 
 from sqlalchemy import Column, DateTime, Index, String
 from sqlalchemy import Enum as SQLEnum
@@ -21,13 +20,30 @@ class Base(DeclarativeBase):
     pass
 
 
-class User(TypedDict):
+class User:
     """User information from JWT."""
 
-    id: str
-    sub: str
-    email: str
-    aud: str
+    def __init__(self, id: str, sub: str, email: str, aud: str) -> None:
+        self.id = id
+        self.sub = sub
+        self.email = email
+        self.aud = aud
+
+    def __eq__(self, other):
+        if not isinstance(other, User):
+            return False
+        return (
+            self.id == other.id
+            and self.sub == other.sub
+            and self.email == other.email
+            and self.aud == other.aud
+        )
+
+    def __repr__(self):
+        return (
+            f"User(id={self.id!r}, sub={self.sub!r}, "
+            f"email={self.email!r}, aud={self.aud!r})"
+        )
 
 
 class APIKeyStatus(str, Enum):
@@ -107,3 +123,16 @@ class APIKey(Base):
         self.status = status
         self.expires_at = expires_at
         self.last_used_at = last_used_at
+
+    def __str__(self) -> str:
+        """Return a string representation of the API key."""
+        return f"APIKey(id='{self.id[:8]}...', status='{self.status.value}')"
+
+    def __repr__(self) -> str:
+        """Return a detailed string representation of the API key."""
+        return (
+            f"APIKey(id='{self.id[:8]}...', "
+            f"status='{self.status.value}', "
+            f"created_at={self.created_at}, "
+            f"expires_at={self.expires_at})"
+        )

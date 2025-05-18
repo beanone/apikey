@@ -12,6 +12,7 @@ from apikey.dependencies import (
     get_current_user,
     validate_api_key,
 )
+from apikey.models import User
 
 
 def make_request(headers=None, query_string=b""):
@@ -33,13 +34,11 @@ async def test_get_current_user_valid(monkeypatch):
     monkeypatch.setattr(jwt, "decode", fake_decode)
     request = make_request()
     result = await get_current_user(request, token="validtoken")
-    expected = {
-        "id": payload["sub"],
-        "sub": payload["sub"],
-        "email": payload["email"],
-        "aud": "fastapi-users:auth",
-    }
-    assert dict(result) == expected
+    assert isinstance(result, User)
+    assert result.id == payload["sub"]
+    assert result.sub == payload["sub"]
+    assert result.email == payload["email"]
+    assert result.aud == "fastapi-users:auth"
 
 
 @pytest.mark.asyncio
@@ -197,10 +196,8 @@ async def test_get_current_user_with_api_key(monkeypatch):
     headers = [(API_KEY_HEADER.lower().encode(), api_key.encode())]
     request = make_request(headers=headers)
     result = await get_current_user(request, token="any", session=AsyncMock())
-    expected = {
-        "id": expected_user_info["user_id"],
-        "sub": expected_user_info["user_id"],
-        "email": "",
-        "aud": "fastapi-users:auth",
-    }
-    assert dict(result) == expected
+    assert isinstance(result, User)
+    assert result.id == expected_user_info["user_id"]
+    assert result.sub == expected_user_info["user_id"]
+    assert result.email == ""
+    assert result.aud == "fastapi-users:auth"

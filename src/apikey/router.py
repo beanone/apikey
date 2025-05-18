@@ -76,7 +76,7 @@ async def list_api_keys(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> list[APIKeyReadResponse]:
     """List all API keys for the authenticated user."""
-    user_id = str(user.id)  # type: ignore[attr-defined]
+    user_id = str(user.id)
     keys = await handler_list_api_keys(user_id=user_id, session=session)
     return [APIKeyReadResponse(**k) for k in keys]
 
