@@ -4,14 +4,15 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from keylin.apikey_manager import create_api_key as handler_create_api_key
-from keylin.apikey_manager import delete_api_key as handler_delete_api_key
-from keylin.apikey_manager import list_api_keys as handler_list_api_keys
-from keylin.db import get_async_session
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .db import get_async_session
 from .dependencies import User, get_current_user
+from .manager import create_api_key as handler_create_api_key
+from .manager import delete_api_key as handler_delete_api_key
+from .manager import list_api_keys as handler_list_api_keys
+from .models import User
 
 
 class APIKeyCreateRequest(BaseModel):

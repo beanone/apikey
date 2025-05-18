@@ -9,12 +9,11 @@ import pytest
 from fastapi import FastAPI, HTTPException, status
 from httpx import ASGITransport, AsyncClient
 from jose import JWTError
-from keylin.db import get_async_session as keylin_get_async_session
-from keylin.models import APIKey
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apikey import api_key_router
 from apikey.dependencies import get_current_user
+from apikey.models import APIKey, get_async_session
+from apikey.router import api_key_router
 
 # Constants for test assertions
 EXPECTED_EXECUTE_CALLS = 2
@@ -68,7 +67,7 @@ def fake_api_key_instance() -> APIKey:
 
 
 @pytest.mark.asyncio
-@patch("keylin.apikey_manager.create_api_key_record")
+@patch("apikey.manager.create_api_key_record")
 async def test_create_api_key(
     mock_create_api_key_record: AsyncMock,
     app: FastAPI,
@@ -82,7 +81,7 @@ async def test_create_api_key(
     mock_db_session.add = Mock()
     mock_db_session.commit = AsyncMock()
     mock_db_session.refresh = AsyncMock()
-    app.dependency_overrides[keylin_get_async_session] = lambda: mock_db_session
+    app.dependency_overrides[get_async_session] = lambda: mock_db_session
 
     mock_create_api_key_record.return_value = (
         "plaintext_example_key",
@@ -126,7 +125,7 @@ async def test_list_api_keys(
     mock_execute_result.scalars = Mock(return_value=mock_scalars_result)
 
     mock_db_session.execute = AsyncMock(return_value=mock_execute_result)
-    app.dependency_overrides[keylin_get_async_session] = lambda: mock_db_session
+    app.dependency_overrides[get_async_session] = lambda: mock_db_session
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -172,7 +171,7 @@ async def test_delete_api_key_success(
         ]
     )
     mock_db_session.commit = AsyncMock()
-    app.dependency_overrides[keylin_get_async_session] = lambda: mock_db_session
+    app.dependency_overrides[get_async_session] = lambda: mock_db_session
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -199,7 +198,7 @@ async def test_delete_api_key_not_found(
     # The DB session still needs to be mocked for the app's dependency resolution,
     # even if the handler that uses it is mocked.
     mock_db_session = AsyncMock(spec=AsyncSession)
-    app.dependency_overrides[keylin_get_async_session] = lambda: mock_db_session
+    app.dependency_overrides[get_async_session] = lambda: mock_db_session
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

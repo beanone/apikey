@@ -7,7 +7,7 @@
 [![Code Quality](https://img.shields.io/badge/code%20style-ruff-000000)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/beanone-apikey)](https://pypi.org/project/beanone-apikey)
 
-A reusable FastAPI router for API key management, built on top of the keylin library.
+A reusable FastAPI router for API key management, built on top of the userdb library.
 
 ## Installation
 
@@ -31,7 +31,7 @@ app.include_router(api_key_router)
 - API key validation
 - API key revocation
 - API key listing
-- Built on keylin for core functionality
+- Built on userdb for core functionality
 
 ## API Endpoints
 
