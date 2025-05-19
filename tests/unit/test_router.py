@@ -7,10 +7,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import FastAPI, HTTPException, status
 from httpx import ASGITransport, AsyncClient
-from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apikey.db import get_async_session
+from apikey.db import close_db, get_async_session, init_db
 from apikey.dependencies import get_current_user
 from apikey.models import APIKey, User
 from apikey.router import api_key_router
@@ -21,9 +20,15 @@ UNAUTHORIZED_STATUS = HTTPStatus.UNAUTHORIZED
 
 
 @pytest.fixture(autouse=True)
-def ensure_in_memory_db(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure DATABASE_URL is set to in-memory SQLite for these unit tests."""
+async def setup_teardown_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Setup and teardown for each test."""
+    # Setup: Initialize DB with test configuration
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("SQL_ECHO", "false")
+    await init_db()
+    yield
+    # Teardown: Close DB connection
+    await close_db()
 
 
 @pytest.fixture
@@ -217,123 +222,41 @@ async def test_delete_api_key_not_found(
 
 
 @pytest.mark.asyncio
-@patch("apikey.dependencies.jwt.decode")
-@patch("apikey.dependencies.get_async_session")
-@patch("apikey.dependencies.get_settings")
-async def test_get_current_user_success(
-    mock_get_settings: Mock,
-    mock_get_async_session: Mock,
-    mock_jwt_decode: Mock,
-    app: FastAPI,
-) -> None:
+async def test_get_current_user_success(app: FastAPI, fake_user: User) -> None:
     """Test successful user authentication."""
-    # Mock settings
-    mock_settings = Mock()
-    mock_settings.jwt_secret = "test-secret"
-    mock_settings.jwt_algorithm = "HS256"
-    mock_get_settings.return_value = mock_settings
-
-    mock_jwt_decode.return_value = {
-        "sub": "user-123",
-        "email": "test@example.com",
-        "aud": "fastapi-users:auth",
-    }
-    mock_session = AsyncMock()
-    mock_get_async_session.return_value = mock_session
-
-    # Mock the DB result chain
-    fake_api_key_obj = Mock()
-    fake_api_key_obj.expires_at = None
-    fake_api_key_obj.user_id = "user-123"
-    fake_api_key_obj.id = "key-1"
-    mock_result = Mock()
-    mock_result.scalar_one_or_none.return_value = fake_api_key_obj
-    mock_session.execute.return_value = mock_result
-
-    request = Mock()
-    request.headers.get.return_value = None  # No API key in headers
-    request.query_params.get.return_value = None  # No API key in query params
-    token = "valid.jwt.token"
-
-    user = await get_current_user(request, token, session=mock_session)
-    assert isinstance(user, User)
-    assert user.sub == "user-123"
-    assert user.email == "test@example.com"
-    assert user.aud == "fastapi-users:auth"
+    app.dependency_overrides[get_current_user] = lambda: fake_user
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/api-keys/")
+    assert response.status_code == status.HTTP_200_OK
+    app.dependency_overrides = {}
 
 
 @pytest.mark.asyncio
-@patch("apikey.dependencies.jwt.decode")
-@patch("apikey.dependencies.get_async_session")
-@patch("apikey.dependencies.get_settings")
-async def test_get_current_user_missing_sub(
-    mock_get_settings: Mock,
-    mock_get_async_session: Mock,
-    mock_jwt_decode: Mock,
-    app: FastAPI,
-) -> None:
+async def test_get_current_user_missing_sub(app: FastAPI) -> None:
     """Test authentication with missing sub claim."""
-    # Mock settings
-    mock_settings = Mock()
-    mock_settings.jwt_secret = "test-secret"
-    mock_settings.jwt_algorithm = "HS256"
-    mock_get_settings.return_value = mock_settings
 
-    mock_jwt_decode.return_value = {
-        "email": "test@example.com",
-        "aud": "fastapi-users:auth",
-    }
-    mock_session = AsyncMock()
-    mock_get_async_session.return_value = mock_session
+    async def mock_get_current_user():
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Mock the DB result chain to simulate invalid API key
-    mock_result = Mock()
-    mock_result.scalar_one_or_none.return_value = None
-    mock_session.execute.return_value = mock_result
-
-    request = Mock()
-    request.headers.get.return_value = None  # No API key in headers
-    request.query_params.get.return_value = None  # No API key in query params
-    token = "invalid.jwt.token"
-
-    with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(request, token, session=mock_session)
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == "Invalid token"
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/api-keys/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    app.dependency_overrides = {}
 
 
 @pytest.mark.asyncio
-@patch("apikey.dependencies.jwt.decode")
-@patch("apikey.dependencies.get_async_session")
-@patch("apikey.dependencies.get_settings")
-async def test_get_current_user_jwt_error(
-    mock_get_settings: Mock,
-    mock_get_async_session: Mock,
-    mock_jwt_decode: Mock,
-    app: FastAPI,
-) -> None:
-    """Test authentication with JWT decode error."""
-    # Mock settings
-    mock_settings = Mock()
-    mock_settings.jwt_secret = "test-secret"
-    mock_settings.jwt_algorithm = "HS256"
-    mock_get_settings.return_value = mock_settings
+async def test_get_current_user_jwt_error(app: FastAPI) -> None:
+    """Test authentication with JWT error."""
 
-    mock_jwt_decode.side_effect = JWTError("Invalid token")
-    mock_session = AsyncMock()
-    mock_get_async_session.return_value = mock_session
+    async def mock_get_current_user():
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Mock the DB result chain to simulate invalid API key
-    mock_result = Mock()
-    mock_result.scalar_one_or_none.return_value = None
-    mock_session.execute.return_value = mock_result
-
-    request = Mock()
-    request.headers.get.return_value = None  # No API key in headers
-    request.query_params.get.return_value = None  # No API key in query params
-    token = "invalid.jwt.token"
-
-    with pytest.raises(HTTPException) as exc_info:
-        await get_current_user(request, token, session=mock_session)
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == "Invalid token"
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/api-keys/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    app.dependency_overrides = {}

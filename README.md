@@ -111,7 +111,8 @@ Environment variables:
    Create a `.env` file in the project root:
    ```bash
    # Database configuration
-   DATABASE_URL=sqlite+aiosqlite:///./apikey.db  # For local development
+   # For local deployment only
+   DATABASE_URL=sqlite+aiosqlite:///./apikey.db
    # DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5433/apikeydb  # For PostgreSQL with Docker
 
    # JWT configuration: should match that of the Login service

@@ -32,8 +32,8 @@ async def test_get_current_user_valid(monkeypatch):
         return payload
 
     monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request()
-    result = await get_current_user(request, token="validtoken")
+    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
+    result = await get_current_user(request, session=AsyncMock())
     assert isinstance(result, User)
     assert result.id == payload["sub"]
     assert result.sub == payload["sub"]
@@ -47,9 +47,9 @@ async def test_get_current_user_invalid_token(monkeypatch):
         raise JWTError("bad token")
 
     monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request()
+    request = make_request(headers=[(b"authorization", b"Bearer invalidtoken")])
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, token="invalidtoken")
+        await get_current_user(request, session=AsyncMock())
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid token"
 
@@ -62,9 +62,9 @@ async def test_get_current_user_missing_sub(monkeypatch):
         return payload
 
     monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request()
+    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, token="validtoken")
+        await get_current_user(request, session=AsyncMock())
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid token"
 
@@ -142,7 +142,7 @@ async def test_validate_api_key_expired(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         await validate_api_key(api_key, session)
     assert exc.value.status_code == 401
-    assert exc.value.detail == "API key expired"
+    assert exc.value.detail == "API key has expired"
 
 
 @pytest.mark.asyncio
@@ -170,14 +170,14 @@ async def test_validate_api_key_user_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_current_user_jwt_decode_error(monkeypatch):
-    request = make_request()
+    request = make_request(headers=[(b"authorization", b"Bearer badtoken")])
 
     def fake_decode(token, secret, algorithms, **kwargs):
         raise JWTError("bad token")
 
     monkeypatch.setattr(jwt, "decode", fake_decode)
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, token="badtoken", session=AsyncMock())
+        await get_current_user(request, session=AsyncMock())
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid token"
 
@@ -195,7 +195,7 @@ async def test_get_current_user_with_api_key(monkeypatch):
     )
     headers = [(API_KEY_HEADER.lower().encode(), api_key.encode())]
     request = make_request(headers=headers)
-    result = await get_current_user(request, token="any", session=AsyncMock())
+    result = await get_current_user(request, session=AsyncMock())
     assert isinstance(result, User)
     assert result.id == expected_user_info["user_id"]
     assert result.sub == expected_user_info["user_id"]
