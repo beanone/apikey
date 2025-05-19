@@ -36,6 +36,8 @@ async def setup_teardown():
     os.environ["SQL_ECHO"] = "false"
     os.environ["JWT_SECRET"] = "supersecretjwtkey"
     os.environ["JWT_ALGORITHM"] = "HS256"
+    # Remove login URL dependency since we're using a mock OAuth2 scheme
+    # os.environ["LOGIN_URL"] = "http://localhost:8001"
 
     # Initialize the real database
     await init_db()
@@ -76,6 +78,28 @@ async def setup_teardown():
         )
         await session.commit()
 
+        # Create test user
+        user_id = "test-user-1"
+        result = await session.execute(
+            text("SELECT id FROM users WHERE id = :user_id"), {"user_id": user_id}
+        )
+        if not result.first():
+            await session.execute(
+                text(
+                    """
+                INSERT INTO users (id, email, hashed_password, is_active)
+                VALUES (:user_id, :email, :password, :is_active)
+            """
+                ),
+                {
+                    "user_id": user_id,
+                    "email": "test@example.com",
+                    "password": "hashedpass",
+                    "is_active": True,
+                },
+            )
+            await session.commit()
+
     yield
 
     # Teardown: Clean up database
@@ -97,6 +121,15 @@ def app():
 
     # Override the OAuth2 scheme for testing
     app.dependency_overrides[OAuth2PasswordBearer] = TestOAuth2PasswordBearer
+
+    # Override the settings to not require a login service
+    from apikey.dependencies import get_settings
+
+    original_settings = get_settings()
+    original_settings.login_url = (
+        "http://test"  # Use a dummy URL since we're mocking the auth
+    )
+    app.dependency_overrides[get_settings] = lambda: original_settings
 
     return app
 
@@ -149,30 +182,8 @@ def test_token():
 
 @pytest.fixture
 async def test_user():
-    """Create a test user in the database."""
-    user_id = "test-user-1"
-    async with DBState.async_session_maker() as session:
-        # Check if user already exists
-        result = await session.execute(
-            text("SELECT id FROM users WHERE id = :user_id"), {"user_id": user_id}
-        )
-        if not result.first():
-            await session.execute(
-                text(
-                    """
-                INSERT INTO users (id, email, hashed_password, is_active)
-                VALUES (:user_id, :email, :password, :is_active)
-            """
-                ),
-                {
-                    "user_id": user_id,
-                    "email": "test@example.com",
-                    "password": "hashedpass",
-                    "is_active": True,
-                },
-            )
-            await session.commit()
-    return user_id
+    """Get the test user ID."""
+    return "test-user-1"
 
 
 @pytest.fixture
