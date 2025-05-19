@@ -37,9 +37,6 @@ async def setup_teardown():
     os.environ["JWT_SECRET"] = "supersecretjwtkey"
     os.environ["JWT_ALGORITHM"] = "HS256"
 
-    logger.debug(f"Using JWT secret: {os.environ['JWT_SECRET']}")
-    logger.debug(f"Using JWT algorithm: {os.environ['JWT_ALGORITHM']}")
-
     # Initialize the real database
     await init_db()
 

@@ -7,20 +7,15 @@
     },
     "item": [
         {
-            "name": "Login",
+            "name": "Login User",
             "request": {
                 "method": "POST",
                 "header": [
                     {
                         "key": "Content-Type",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/x-www-form-urlencoded"
                     }
                 ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}"
-                },
                 "url": {
                     "raw": "{{login_url}}/auth/jwt/login",
                     "host": [
@@ -32,9 +27,41 @@
                         "login"
                     ]
                 },
-                "description": "Login to get JWT token"
+                "body": {
+                    "mode": "urlencoded",
+                    "urlencoded": [
+                        {
+                            "key": "username",
+                            "value": "testuser@example.com",
+                            "type": "text"
+                        },
+                        {
+                            "key": "password",
+                            "value": "testpassword123",
+                            "type": "text"
+                        }
+                    ]
+                },
+                "description": "Login with user credentials."
             },
-            "response": []
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test('Response has access token', function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData).to.have.property('access_token');",
+                            "    pm.globals.set('jwt_token', jsonData.access_token);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
         },
         {
             "name": "Health Check",
@@ -72,7 +99,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"service_id\": \"test-service\",\n    \"name\": \"Test API Key\",\n    \"expires_at\": \"2024-12-31T23:59:59Z\"\n}"
+                    "raw": "{\n    \"service_id\": \"test-service\",\n    \"name\": \"Test API Key\",\n    \"expires_at\": \"{{expires_at}}\"\n}"
                 },
                 "url": {
                     "raw": "{{base_url}}/api/v1/api-keys/",
@@ -88,6 +115,38 @@
                 },
                 "description": "Create a new API key for the authenticated user"
             },
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "exec": [
+                            "// Set expires_at to 1 year from now",
+                            "const oneYearFromNow = new Date();",
+                            "oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);",
+                            "pm.variables.set('expires_at', oneYearFromNow.toISOString());"
+                        ],
+                        "type": "text/javascript"
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test('Response has API Key', function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData).to.have.property('id');",
+                            "    pm.expect(jsonData).to.have.property('plaintext_key');",
+                            "    pm.globals.set('api_key', jsonData.plaintext_key);",
+                            "    pm.globals.set('api_key_id', jsonData.id);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
             "response": []
         },
         {
@@ -142,10 +201,66 @@
                 },
                 "description": "Delete (revoke) an API key by ID"
             },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 204', function () {",
+                            "    pm.response.to.have.status(204);",
+                            "});",
+                            "pm.test('Reset API Key vairables', function () {",
+                            "    pm.globals.set('api_key', '');",
+                            "    pm.globals.set('api_key_id', '');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
             "response": []
         },
         {
-            "name": "API Key Authentication",
+            "name": "Test Auth - JWT",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/test-auth",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        "test-auth"
+                    ]
+                },
+                "description": "Test JWT authentication using the test-auth endpoint"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Test Auth - API Key Header",
             "request": {
                 "method": "GET",
                 "header": [
@@ -156,7 +271,7 @@
                     }
                 ],
                 "url": {
-                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "raw": "{{base_url}}/api/v1/api-keys/test-auth",
                     "host": [
                         "{{base_url}}"
                     ],
@@ -164,12 +279,24 @@
                         "api",
                         "v1",
                         "api-keys",
-                        ""
+                        "test-auth"
                     ]
                 },
-                "description": "Test API key authentication"
+                "description": "Test API key authentication using X-API-Key header"
             },
-            "response": []
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
         }
     ],
     "event": [
@@ -201,31 +328,6 @@
         {
             "key": "login_url",
             "value": "http://localhost:8001",
-            "type": "string"
-        },
-        {
-            "key": "username",
-            "value": "your-username",
-            "type": "string"
-        },
-        {
-            "key": "password",
-            "value": "your-password",
-            "type": "string"
-        },
-        {
-            "key": "jwt_token",
-            "value": "your-jwt-token-here",
-            "type": "string"
-        },
-        {
-            "key": "api_key",
-            "value": "your-api-key-here",
-            "type": "string"
-        },
-        {
-            "key": "api_key_id",
-            "value": "your-api-key-id-here",
             "type": "string"
         }
     ]

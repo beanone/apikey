@@ -16,8 +16,11 @@ COPY . .
 # Install the package in development mode
 RUN pip install -e .
 
-# Add non-root user
-RUN adduser --disabled-password --gecos "" appuser
+# Add non-root user and set permissions
+RUN adduser --disabled-password --gecos "" appuser && \
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app
+
 USER appuser
 
 # Add health check

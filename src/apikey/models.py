@@ -79,7 +79,7 @@ class APIKey(Base):
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     service_id = Column(String, nullable=False)
     status = Column(SQLEnum(APIKeyStatus), default=APIKeyStatus.ACTIVE, nullable=False)
-    expires_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     __table_args__ = (Index("ix_api_keys_user_id", "user_id"),)
 
