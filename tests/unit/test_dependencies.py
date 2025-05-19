@@ -8,6 +8,7 @@ from starlette.requests import Request
 
 from apikey.dependencies import (
     API_KEY_HEADER,
+    CustomSecurityScheme,
     get_api_key_from_request,
     get_current_user,
     validate_api_key,
@@ -201,3 +202,102 @@ async def test_get_current_user_with_api_key(monkeypatch):
     assert result.sub == expected_user_info["user_id"]
     assert result.email == ""
     assert result.aud == "fastapi-users:auth"
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_no_auth():
+    """Test get_current_user with no authentication provided."""
+    request = make_request()  # No headers or query params
+    with pytest.raises(HTTPException) as exc:
+        await get_current_user(request, session=AsyncMock())
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "No authentication provided"
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_invalid_auth_header():
+    """Test get_current_user with invalid Authorization header format."""
+    # Test with non-Bearer token
+    request = make_request(headers=[(b"authorization", b"InvalidFormat token")])
+    with pytest.raises(HTTPException) as exc:
+        await get_current_user(request, session=AsyncMock())
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "No authentication provided"
+
+    # Test with empty token
+    request = make_request(headers=[(b"authorization", b"Bearer ")])
+    with pytest.raises(HTTPException) as exc:
+        await get_current_user(request, session=AsyncMock())
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Invalid token"  # Empty token is treated as invalid JWT
+
+
+@pytest.mark.asyncio
+async def test_get_api_key_from_request_query():
+    """Test getting API key from query parameters."""
+    # Test with API key in query parameters
+    request = make_request(query_string=b"api_key=testkey123")
+    result = await get_api_key_from_request(request)
+    assert result == "testkey123"
+
+    # Test with no API key in query parameters
+    request = make_request(query_string=b"")
+    result = await get_api_key_from_request(request)
+    assert result is None
+
+    # Test with other query parameters but no API key
+    request = make_request(query_string=b"other=value")
+    result = await get_api_key_from_request(request)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_custom_security_scheme_valid_bearer_token():
+    """Test CustomSecurityScheme with valid Bearer token.
+
+    Verifies that a valid Bearer token is correctly extracted from the
+    Authorization header.
+    """
+    # Arrange: Create request with valid Bearer token
+    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
+    security_scheme = CustomSecurityScheme()
+
+    # Act: Call the security scheme
+    token = await security_scheme.__call__(request)
+
+    # Assert: Token is extracted correctly
+    assert token == "validtoken"
+
+
+@pytest.mark.asyncio
+async def test_custom_security_scheme_no_auth_header():
+    """Test CustomSecurityScheme with missing Authorization header.
+
+    Verifies that None is returned when no Authorization header is present.
+    """
+    # Arrange: Create request with no Authorization header
+    request = make_request(headers=[])
+    security_scheme = CustomSecurityScheme()
+
+    # Act: Call the security scheme
+    token = await security_scheme.__call__(request)
+
+    # Assert: Returns None
+    assert token is None
+
+
+@pytest.mark.asyncio
+async def test_custom_security_scheme_invalid_auth_header():
+    """Test CustomSecurityScheme with invalid Authorization header.
+
+    Verifies that None is returned when Authorization header doesn't use Bearer scheme.
+    """
+    # Arrange: Create request with invalid Authorization header (no Bearer)
+    request = make_request(headers=[(b"authorization", b"Basic credentials")])
+    security_scheme = CustomSecurityScheme()
+
+    # Act: Call the security scheme
+    token = await security_scheme.__call__(request)
+
+    # Assert: Returns None
+    assert token is None

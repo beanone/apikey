@@ -342,3 +342,29 @@ async def test_delete_api_key(async_client, test_user, test_api_key, test_token)
             text("SELECT id FROM api_keys WHERE id = :key_id"), {"key_id": "test-key-1"}
         )
         assert result.first() is None
+
+
+@pytest.mark.asyncio
+async def test_auth_jwt(async_client, test_user, test_api_key, test_token):
+    """Test deleting an API key with a real database."""
+    logger.debug(f"Testing delete API key with token: {test_token}")
+    response = await async_client.get(
+        "/api/v1/api-keys/test-auth", headers={"Authorization": f"Bearer {test_token}"}
+    )
+    logger.debug(f"Response status: {response.status_code}")
+    logger.debug(f"Response body: {response.text}")
+    assert response.status_code == 200
+    assert response.json() == {"status": "success"}
+
+
+@pytest.mark.asyncio
+async def test_auth_api_key(async_client, test_user, test_api_key, test_token):
+    """Test deleting an API key with a real database."""
+    logger.debug(f"Testing delete API key with token: {test_token}")
+    response = await async_client.get(
+        "/api/v1/api-keys/test-auth", headers={"X-API-Key": f"{test_api_key}"}
+    )
+    logger.debug(f"Response status: {response.status_code}")
+    logger.debug(f"Response body: {response.text}")
+    assert response.status_code == 200
+    assert response.json() == {"status": "success"}
