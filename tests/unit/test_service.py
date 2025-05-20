@@ -65,4 +65,4 @@ def test_openapi_schema(client: TestClient) -> None:
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["title"] == "API Key Management Service"
-    assert schema["info"]["version"] == "0.1.0"
+    assert schema["info"]["version"] == "0.0.0"
