@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "beanone-apikey"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A reusable FastAPI router for API key management"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,6 +54,12 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/apikey"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/apikey/__init__.py"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,12 +4,29 @@ This module provides a standalone FastAPI application that can be run as a servi
 while still maintaining the library functionality for use in other applications.
 """
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apikey import __version__
 from apikey.db import init_db
 from apikey.dependencies import get_settings
 from apikey.router import api_key_router
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and cleanup database connection."""
+    # Startup: Initialize database
+    await init_db()  # pragma: no cover
+    yield  # pragma: no cover
+    # Shutdown: Nothing to do here as we use SQLite
 
 
 def create_app() -> FastAPI:
@@ -23,7 +40,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="API Key Management Service",
         description="Standalone service for managing API keys",
-        version="0.1.0",
+        version=__version__,
+        lifespan=lifespan,
     )
 
     # Configure CORS
@@ -42,11 +60,6 @@ def create_app() -> FastAPI:
     async def health_check():
         """Health check endpoint for Docker and monitoring."""
         return {"status": "healthy"}
-
-    @app.on_event("startup")
-    async def startup_event():
-        """Initialize database on startup."""
-        await init_db()  # pragma: no cover
 
     return app
 
