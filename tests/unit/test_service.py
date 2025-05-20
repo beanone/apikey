@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from apikey import __version__
 from apikey.service import create_app
 
 
@@ -65,4 +66,4 @@ def test_openapi_schema(client: TestClient) -> None:
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["title"] == "API Key Management Service"
-    assert schema["info"]["version"] == "0.0.0"
+    assert schema["info"]["version"] == __version__

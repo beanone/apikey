@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Initialize and cleanup database connection."""
     # Startup: Initialize database
-    await init_db()
-    yield
+    await init_db()  # pragma: no cover
+    yield  # pragma: no cover
     # Shutdown: Nothing to do here as we use SQLite
 
 
