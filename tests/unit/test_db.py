@@ -212,3 +212,25 @@ async def test_init_db_async_sqlite_branch(monkeypatch):
             assert DBState.engine is not None
             assert DBState.async_session_maker is not None
             await close_db()
+
+
+@pytest.mark.asyncio
+async def test_init_db_non_sqlite_branch(monkeypatch):
+    """Ensure the non-sqlite branch in init_db is covered."""
+    # First close any existing connection
+    await close_db()
+
+    # Set up non-SQLite URL and mock _is_async_sqlite to return False
+    monkeypatch.setattr(db, "DB_URL", "postgresql://test:test@localhost:5432/test")
+    monkeypatch.setattr(db, "_is_async_sqlite", lambda x: False)
+
+    # Patch create_async_engine to avoid real engine creation
+    with patch("apikey.db.create_async_engine", return_value=MagicMock()):
+        # Patch async_sessionmaker to avoid real session creation
+        with patch("apikey.db.async_sessionmaker", return_value=MagicMock()):
+            DBState.engine = None
+            DBState.async_session_maker = None
+            await init_db()
+            assert DBState.engine is not None
+            assert DBState.async_session_maker is not None
+            await close_db()

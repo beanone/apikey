@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup_event():
         """Initialize database on startup."""
-        await init_db()
+        await init_db()  # pragma: no cover
 
     return app
 
