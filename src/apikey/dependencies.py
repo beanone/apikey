@@ -7,6 +7,7 @@ from typing import ClassVar
 
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,10 +34,7 @@ class Settings(BaseSettings):
     jwt_secret: str = os.getenv("JWT_SECRET", "changeme")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
 
-    class Config:
-        """Pydantic config."""
-
-        env_prefix = "APIKEY_"
+    model_config = ConfigDict()
 
 
 def get_settings() -> Settings:
