@@ -2,6 +2,7 @@ name: Docker Build and Publish
 
 on:
   push:
+    workflow_dispatch: false
     tags: [ 'v*.*.*' ]  # Only run on tag pushes like v1.2.3
 
 jobs:
