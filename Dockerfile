@@ -19,8 +19,8 @@ COPY . .
 # Set version for package build
 ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_BEANONE_APIKEY=${VERSION}
 
-# Install the package in development mode
-RUN pip install -e .
+# Install the package (not in editable mode)
+RUN pip install .
 
 # Add non-root user and set permissions
 RUN adduser --disabled-password --gecos "" appuser && \
