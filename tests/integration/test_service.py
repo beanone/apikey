@@ -36,7 +36,7 @@ async def setup_teardown():
     os.environ["SQL_ECHO"] = "false"
     os.environ["JWT_SECRET"] = "supersecretjwtkey"
     os.environ["JWT_ALGORITHM"] = "HS256"
-    # Remove login URL dependency since we're using a mock OAuth2 scheme
+    # For local testing only
     # os.environ["LOGIN_URL"] = "http://localhost:8001"
 
     # Initialize the real database
