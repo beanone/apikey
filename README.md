@@ -2,8 +2,8 @@
 
 [![Python Versions](https://img.shields.io/pypi/pyversions/beanone-apikey)](https://pypi.org/project/beanone-apikey)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://github.com/yourusername/apikey/actions/workflows/tests.yml/badge.svg)](https://github.com/yourusername/apikey/actions?query=workflow%3Atests)
-[![Coverage](https://codecov.io/gh/yourusername/apikey/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/apikey)
+[![Tests](https://github.com/beanone/apikey/actions/workflows/tests.yml/badge.svg)](https://github.com/beanone/apikey/actions?query=workflow%3Atests)
+[![Coverage](https://codecov.io/gh/beanone/apikey/branch/main/graph/badge.svg)](https://codecov.io/gh/beanone/apikey)
 [![Code Quality](https://img.shields.io/badge/code%20style-ruff-000000)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/beanone-apikey)](https://pypi.org/project/beanone-apikey)
 
