@@ -76,7 +76,7 @@ async def list_api_keys(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> list[APIKeyReadResponse]:
     """List all API keys for the authenticated user."""
-    user_id = str(user.id)  # type: ignore[attr-defined]
+    user_id = str(user.id)
     keys = await handler_list_api_keys(user_id=user_id, session=session)
     return [APIKeyReadResponse(**k) for k in keys]
 
@@ -94,3 +94,16 @@ async def delete_api_key(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="API key not found")
+
+
+@api_key_router.get("/test-auth", status_code=status.HTTP_200_OK)
+async def test_auth(
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+):
+    """Test endpoint for authentication.
+
+    This endpoint verifies that authentication (JWT or API key) works correctly.
+    Returns 200 OK if authentication is successful.
+    """
+    return {"status": "success"}

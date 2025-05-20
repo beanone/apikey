@@ -187,7 +187,7 @@ def test_create_api_key_record_with_all_params() -> None:
     assert record.name == name
     assert record.id == key_id
     assert record.created_at == created_at.replace(tzinfo=None)
-    assert record.expires_at == expires_at.replace(tzinfo=None)
+    assert record.expires_at == expires_at  # Now timezone-aware
     assert record.last_used_at == last_used_at.replace(tzinfo=None)
 
 
@@ -204,7 +204,7 @@ def test_create_api_key_record_timezone_handling() -> None:
     )
 
     assert record.created_at.tzinfo is None
-    assert record.expires_at.tzinfo is None
+    assert record.expires_at.tzinfo == timezone.utc  # Now timezone-aware
     assert record.last_used_at.tzinfo is None
 
     # Test with naive datetime
@@ -218,7 +218,7 @@ def test_create_api_key_record_timezone_handling() -> None:
     )
 
     assert record.created_at == naive
-    assert record.expires_at == naive
+    assert record.expires_at.tzinfo == timezone.utc  # Now timezone-aware
     assert record.last_used_at == naive
 
 

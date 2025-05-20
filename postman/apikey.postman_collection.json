@@ -1,0 +1,22 @@
+{
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "exec": [
+                    "// Set expires_at to 1 year from now",
+                    "const oneYearFromNow = new Date();",
+                    "oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);",
+                    "pm.variables.set('expires_at', oneYearFromNow.toISOString());",
+                    "",
+                    "// Set service_id",
+                    "pm.variables.set('service_id', 'home-service');",
+                    "",
+                    "// Set name",
+                    "pm.variables.set('name', 'Test API Key');"
+                ],
+                "type": "text/javascript"
+            }
+        }
+    ]
+}

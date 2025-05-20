@@ -1,0 +1,334 @@
+{
+    "info": {
+        "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "API Key Management Service",
+        "description": "Collection for testing the API Key Management Service endpoints",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Login User",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/x-www-form-urlencoded"
+                    }
+                ],
+                "url": {
+                    "raw": "{{login_url}}/auth/jwt/login",
+                    "host": [
+                        "{{login_url}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "jwt",
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "urlencoded",
+                    "urlencoded": [
+                        {
+                            "key": "username",
+                            "value": "testuser@example.com",
+                            "type": "text"
+                        },
+                        {
+                            "key": "password",
+                            "value": "testpassword123",
+                            "type": "text"
+                        }
+                    ]
+                },
+                "description": "Login with user credentials."
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test('Response has access token', function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData).to.have.property('access_token');",
+                            "    pm.globals.set('jwt_token', jsonData.access_token);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{base_url}}/health",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "health"
+                    ]
+                },
+                "description": "Check if the service is healthy"
+            },
+            "response": []
+        },
+        {
+            "name": "Create API Key",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": \"test-service\",\n    \"name\": \"Test API Key\",\n    \"expires_at\": \"{{expires_at}}\"\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        ""
+                    ]
+                },
+                "description": "Create a new API key for the authenticated user"
+            },
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "exec": [
+                            "// Set expires_at to 1 year from now",
+                            "const oneYearFromNow = new Date();",
+                            "oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);",
+                            "pm.variables.set('expires_at', oneYearFromNow.toISOString());"
+                        ],
+                        "type": "text/javascript"
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test('Response has API Key', function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData).to.have.property('id');",
+                            "    pm.expect(jsonData).to.have.property('plaintext_key');",
+                            "    pm.globals.set('api_key', jsonData.plaintext_key);",
+                            "    pm.globals.set('api_key_id', jsonData.id);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "response": []
+        },
+        {
+            "name": "List API Keys",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        ""
+                    ]
+                },
+                "description": "List all API keys for the authenticated user"
+            },
+            "response": []
+        },
+        {
+            "name": "Delete API Key",
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/{{api_key_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        "{{api_key_id}}"
+                    ]
+                },
+                "description": "Delete (revoke) an API key by ID"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 204', function () {",
+                            "    pm.response.to.have.status(204);",
+                            "});",
+                            "pm.test('Reset API Key vairables', function () {",
+                            "    pm.globals.set('api_key', '');",
+                            "    pm.globals.set('api_key_id', '');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "response": []
+        },
+        {
+            "name": "Test Auth - JWT",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{jwt_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/test-auth",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        "test-auth"
+                    ]
+                },
+                "description": "Test JWT authentication using the test-auth endpoint"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Test Auth - API Key Header",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-API-Key",
+                        "value": "{{api_key}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/api-keys/test-auth",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "api-keys",
+                        "test-auth"
+                    ]
+                },
+                "description": "Test API key authentication using X-API-Key header"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status code is 200', function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Test script for login response\nif (pm.response.code === 200) {\n    var jsonData = pm.response.json();\n    pm.environment.set(\"jwt_token\", jsonData.access_token);\n}"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8002",
+            "type": "string"
+        },
+        {
+            "key": "login_url",
+            "value": "http://localhost:8001",
+            "type": "string"
+        }
+    ]
+}

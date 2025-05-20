@@ -47,11 +47,13 @@ def create_api_key_record(  # noqa: PLR0913
     else:
         final_created_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Ensure expires_at is naive UTC if provided
+    # Ensure expires_at is timezone-aware UTC if provided
     final_expires_at: datetime | None = None
     if expires_at:
         final_expires_at = (
-            expires_at.replace(tzinfo=None) if expires_at.tzinfo else expires_at
+            expires_at.astimezone(timezone.utc)
+            if expires_at.tzinfo
+            else expires_at.replace(tzinfo=timezone.utc)
         )
 
     # Ensure last_used_at is naive UTC if provided
