@@ -1,303 +1,253 @@
-from datetime import UTC
-from unittest.mock import AsyncMock, MagicMock
+"""Unit tests for authentication dependencies."""
+
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-from jose import JWTError, jwt
+from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt
 from starlette.requests import Request
 
 from apikey.dependencies import (
+    ALGORITHM,
     API_KEY_HEADER,
-    CustomSecurityScheme,
-    get_api_key_from_request,
+    API_KEY_QUERY,
+    JWT_SECRET,
+    Settings,
     get_current_user,
+    get_settings,
     validate_api_key,
+    validate_jwt,
 )
-from apikey.models import User
+from apikey.models import APIKeyStatus, User
 
 
 def make_request(headers=None, query_string=b""):
+    """Create a test request with optional headers and query string."""
     headers = headers or []
     return Request({"type": "http", "headers": headers, "query_string": query_string})
 
 
+# Settings Tests
+def test_get_settings():
+    """Test settings initialization and environment variable handling."""
+    settings = get_settings()
+    assert isinstance(settings, Settings)
+    assert settings.cors_origins == ["*"]
+    assert settings.jwt_algorithm == "HS256"
+
+
+# JWT Validation Tests
 @pytest.mark.asyncio
-async def test_get_current_user_valid(monkeypatch):
+async def test_validate_jwt_success():
+    """Test successful JWT validation."""
     payload = {
-        "sub": "123e4567-e89b-12d3-a456-426614174000",
+        "sub": "test-user-id",
         "email": "test@example.com",
+        "aud": "fastapi-users:auth",
+        "exp": datetime.now(UTC).timestamp() + 3600,
     }
+    # Create a properly formatted JWT token
+    token = jwt.encode(payload, "supersecretjwtkey", algorithm="HS256")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
-    def fake_decode(token, secret, algorithms, **kwargs):
-        assert token == "validtoken"
-        return payload
-
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
-    result = await get_current_user(request, session=AsyncMock())
-    assert isinstance(result, User)
-    assert result.id == payload["sub"]
-    assert result.sub == payload["sub"]
-    assert result.email == payload["email"]
-    assert result.aud == "fastapi-users:auth"
+    with patch("apikey.dependencies.JWT_SECRET", "supersecretjwtkey"):
+        user = await validate_jwt(credentials)
+        assert isinstance(user, User)
+        assert user.id == payload["sub"]
+        assert user.email == payload["email"]
+        assert user.aud == payload["aud"]
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_invalid_token(monkeypatch):
-    def fake_decode(token, secret, algorithms, **kwargs):
-        raise JWTError("bad token")
-
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request(headers=[(b"authorization", b"Bearer invalidtoken")])
-    with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid token"
-
-
-@pytest.mark.asyncio
-async def test_get_current_user_missing_sub(monkeypatch):
+async def test_validate_jwt_missing_sub():
+    """Test JWT validation with missing sub claim."""
     payload = {"email": "test@example.com"}
+    token = jwt.encode(payload, "supersecretjwtkey", algorithm="HS256")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
-    def fake_decode(token, secret, algorithms, **kwargs):
-        return payload
+    with patch("apikey.dependencies.JWT_SECRET", "supersecretjwtkey"):
+        with pytest.raises(HTTPException) as exc:
+            await validate_jwt(credentials)
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "Invalid token"
 
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
+
+@pytest.mark.asyncio
+async def test_validate_jwt_decode_error():
+    """Test JWT validation with decode error."""
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="invalid-token"
+    )
+
+    with patch("apikey.dependencies.JWT_SECRET", "supersecretjwtkey"):
+        with pytest.raises(HTTPException) as exc:
+            await validate_jwt(credentials)
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "Invalid token"
+
+
+def test_validate_jwt_missing_exp():
+    """Test JWT validation fails if 'exp' is missing from payload."""
+    payload = {
+        "sub": "test-user-1",
+        "email": "test@example.com",
+        "aud": "fastapi-users:auth",
+        # 'exp' intentionally omitted
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
+        # validate_jwt is async
+        import asyncio
+
+        asyncio.run(validate_jwt(credentials))
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid token"
+    assert exc.value.detail == "Token missing expiration"
 
 
+# API Key Validation Tests
 @pytest.mark.asyncio
-async def test_get_api_key_from_request_header():
-    api_key = "testkey123"
-    # ASGI headers are lower-case, bytes
-    headers = [(API_KEY_HEADER.lower().encode(), api_key.encode())]
-    request = make_request(headers=headers)
-    result = await get_api_key_from_request(request)
-    assert result == api_key
+async def test_validate_api_key_success():
+    """Test successful API key validation."""
+    api_key = "valid-key"
+    key_hash = "hashed-key"
+    user_id = "test-user-id"
 
-
-@pytest.mark.asyncio
-async def test_validate_api_key_valid(monkeypatch):
-    # Mock APIKey and User objects
-    api_key = "validkey"
-    key_hash = "hashedkey"
-    user_id = "user-1"
     api_key_obj = MagicMock()
     api_key_obj.key_hash = key_hash
-    api_key_obj.status = "active"
+    api_key_obj.status = APIKeyStatus.ACTIVE
     api_key_obj.expires_at = None
     api_key_obj.user_id = user_id
-    api_key_obj.id = "key-1"
-    user_obj = MagicMock()
-    user_obj.email = "user@example.com"
-    # Mock session
+
     session = AsyncMock()
     session.execute = AsyncMock(
-        side_effect=[
-            MagicMock(scalar_one_or_none=lambda: api_key_obj),
-            MagicMock(scalar_one_or_none=lambda: user_obj),
-        ]
+        return_value=MagicMock(scalar_one_or_none=lambda: api_key_obj)
     )
-    # Patch hash_api_key to return the expected hash
-    monkeypatch.setattr("apikey.utils.hash_api_key", lambda k: key_hash)
-    result = await validate_api_key(api_key, session)
-    assert result["user_id"] == user_id
-    assert result["api_key_id"] == api_key_obj.id
+
+    with patch("apikey.utils.hash_api_key", return_value=key_hash):
+        user = await validate_api_key(api_key, session)
+        assert isinstance(user, User)
+        assert user.id == user_id
+        assert user.email == ""
 
 
 @pytest.mark.asyncio
-async def test_validate_api_key_invalid(monkeypatch):
-    api_key = "invalidkey"
+async def test_validate_api_key_not_found():
+    """Test API key validation with non-existent key."""
+    api_key = "invalid-key"
     session = AsyncMock()
     session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=lambda: None))
-    monkeypatch.setattr("apikey.utils.hash_api_key", lambda k: "bad_hash")
-    with pytest.raises(HTTPException) as exc:
-        await validate_api_key(api_key, session)
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid API key"
+
+    with patch("apikey.utils.hash_api_key", return_value="bad-hash"):
+        with pytest.raises(HTTPException) as exc:
+            await validate_api_key(api_key, session)
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "Invalid API key"
 
 
 @pytest.mark.asyncio
-async def test_validate_api_key_expired(monkeypatch):
-    from datetime import datetime, timedelta
+async def test_validate_api_key_expired():
+    """Test API key validation with expired key."""
+    api_key = "expired-key"
+    key_hash = "hashed-key"
 
-    api_key = "expiredkey"
-    key_hash = "expired_hash"
     api_key_obj = MagicMock()
     api_key_obj.key_hash = key_hash
-    api_key_obj.status = "active"
+    api_key_obj.status = APIKeyStatus.ACTIVE
     api_key_obj.expires_at = datetime.now(UTC) - timedelta(days=1)
-    api_key_obj.user_id = "user-2"
-    api_key_obj.id = "key-2"
+
     session = AsyncMock()
     session.execute = AsyncMock(
-        side_effect=[
-            MagicMock(scalar_one_or_none=lambda: api_key_obj),
-        ]
+        return_value=MagicMock(scalar_one_or_none=lambda: api_key_obj)
     )
-    monkeypatch.setattr("apikey.utils.hash_api_key", lambda k: key_hash)
-    with pytest.raises(HTTPException) as exc:
-        await validate_api_key(api_key, session)
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "API key has expired"
+
+    with patch("apikey.utils.hash_api_key", return_value=key_hash):
+        with pytest.raises(HTTPException) as exc:
+            await validate_api_key(api_key, session)
+        assert exc.value.status_code == 401
+        assert exc.value.detail == "API key has expired"
 
 
+# Main Authentication Flow Tests
 @pytest.mark.asyncio
-async def test_validate_api_key_user_not_found(monkeypatch):
-    api_key = "validkey"
-    key_hash = "hashedkey"
-    api_key_obj = MagicMock()
-    api_key_obj.key_hash = key_hash
-    api_key_obj.status = "active"
-    api_key_obj.expires_at = None
-    api_key_obj.user_id = "user-3"
-    api_key_obj.id = "key-3"
-    session = AsyncMock()
-    session.execute = AsyncMock(
-        side_effect=[
-            MagicMock(scalar_one_or_none=lambda: api_key_obj),
-            MagicMock(scalar_one_or_none=lambda: None),
-        ]
-    )
-    monkeypatch.setattr("apikey.utils.hash_api_key", lambda k: key_hash)
-    result = await validate_api_key(api_key, session)
-    assert result["user_id"] == api_key_obj.user_id
-    assert result["api_key_id"] == api_key_obj.id
+async def test_get_current_user_api_key_header():
+    """Test authentication with API key in header."""
+    api_key = "test-key"
+    user_id = "test-user-id"
 
-
-@pytest.mark.asyncio
-async def test_get_current_user_jwt_decode_error(monkeypatch):
-    request = make_request(headers=[(b"authorization", b"Bearer badtoken")])
-
-    def fake_decode(token, secret, algorithms, **kwargs):
-        raise JWTError("bad token")
-
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-    with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid token"
-
-
-@pytest.mark.asyncio
-async def test_get_current_user_with_api_key(monkeypatch):
-    api_key = "testkey123"
-    expected_user_info = {
-        "user_id": "user-xyz",
-        "api_key_id": "key-xyz",
-    }
-    monkeypatch.setattr(
-        "apikey.dependencies.validate_api_key",
-        AsyncMock(return_value=expected_user_info),
-    )
     headers = [(API_KEY_HEADER.lower().encode(), api_key.encode())]
     request = make_request(headers=headers)
-    result = await get_current_user(request, session=AsyncMock())
-    assert isinstance(result, User)
-    assert result.id == expected_user_info["user_id"]
-    assert result.sub == expected_user_info["user_id"]
-    assert result.email == ""
-    assert result.aud == "fastapi-users:auth"
+
+    mock_user = User(id=user_id, sub=user_id, email="", aud="fastapi-users:auth")
+    with patch("apikey.dependencies.validate_api_key", return_value=mock_user):
+        user = await get_current_user(
+            request,
+            credentials=None,
+            api_key_header_val=api_key,
+            api_key_query_val=None,
+            session=AsyncMock(),
+        )
+        assert user == mock_user
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_api_key_query():
+    """Test authentication with API key in query parameters."""
+    api_key = "test-key"
+    user_id = "test-user-id"
+
+    request = make_request(query_string=f"{API_KEY_QUERY}={api_key}".encode())
+
+    mock_user = User(id=user_id, sub=user_id, email="", aud="fastapi-users:auth")
+    with patch("apikey.dependencies.validate_api_key", return_value=mock_user):
+        user = await get_current_user(
+            request,
+            credentials=None,
+            api_key_header_val=None,
+            api_key_query_val=api_key,
+            session=AsyncMock(),
+        )
+        assert user == mock_user
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_jwt():
+    """Test authentication with JWT token."""
+    user_id = "test-user-id"
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="valid-token"
+    )
+
+    request = make_request(headers=[(b"authorization", b"Bearer valid-token")])
+
+    mock_user = User(
+        id=user_id, sub=user_id, email="test@example.com", aud="fastapi-users:auth"
+    )
+    with patch("apikey.dependencies.validate_jwt", return_value=mock_user):
+        user = await get_current_user(
+            request,
+            credentials=credentials,
+            api_key_header_val=None,
+            api_key_query_val=None,
+            session=AsyncMock(),
+        )
+        assert user == mock_user
 
 
 @pytest.mark.asyncio
 async def test_get_current_user_no_auth():
-    """Test get_current_user with no authentication provided."""
-    request = make_request()  # No headers or query params
+    """Test authentication with no credentials."""
+    request = make_request()
+
     with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
+        await get_current_user(
+            request,
+            credentials=None,
+            api_key_header_val=None,
+            api_key_query_val=None,
+            session=AsyncMock(),
+        )
     assert exc.value.status_code == 401
     assert exc.value.detail == "No authentication provided"
-
-
-@pytest.mark.asyncio
-async def test_get_current_user_invalid_auth_header():
-    """Test get_current_user with invalid Authorization header format."""
-    # Test with non-Bearer token
-    request = make_request(headers=[(b"authorization", b"InvalidFormat token")])
-    with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "No authentication provided"
-
-    # Test with empty token
-    request = make_request(headers=[(b"authorization", b"Bearer ")])
-    with pytest.raises(HTTPException) as exc:
-        await get_current_user(request, session=AsyncMock())
-    assert exc.value.status_code == 401
-    assert exc.value.detail == "Invalid token"  # Empty token is treated as invalid JWT
-
-
-@pytest.mark.asyncio
-async def test_get_api_key_from_request_query():
-    """Test getting API key from query parameters."""
-    # Test with API key in query parameters
-    request = make_request(query_string=b"api_key=testkey123")
-    result = await get_api_key_from_request(request)
-    assert result == "testkey123"
-
-    # Test with no API key in query parameters
-    request = make_request(query_string=b"")
-    result = await get_api_key_from_request(request)
-    assert result is None
-
-    # Test with other query parameters but no API key
-    request = make_request(query_string=b"other=value")
-    result = await get_api_key_from_request(request)
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_custom_security_scheme_valid_bearer_token():
-    """Test CustomSecurityScheme with valid Bearer token.
-
-    Verifies that a valid Bearer token is correctly extracted from the
-    Authorization header.
-    """
-    # Arrange: Create request with valid Bearer token
-    request = make_request(headers=[(b"authorization", b"Bearer validtoken")])
-    security_scheme = CustomSecurityScheme()
-
-    # Act: Call the security scheme
-    token = await security_scheme.__call__(request)
-
-    # Assert: Token is extracted correctly
-    assert token == "validtoken"
-
-
-@pytest.mark.asyncio
-async def test_custom_security_scheme_no_auth_header():
-    """Test CustomSecurityScheme with missing Authorization header.
-
-    Verifies that None is returned when no Authorization header is present.
-    """
-    # Arrange: Create request with no Authorization header
-    request = make_request(headers=[])
-    security_scheme = CustomSecurityScheme()
-
-    # Act: Call the security scheme
-    token = await security_scheme.__call__(request)
-
-    # Assert: Returns None
-    assert token is None
-
-
-@pytest.mark.asyncio
-async def test_custom_security_scheme_invalid_auth_header():
-    """Test CustomSecurityScheme with invalid Authorization header.
-
-    Verifies that None is returned when Authorization header doesn't use Bearer scheme.
-    """
-    # Arrange: Create request with invalid Authorization header (no Bearer)
-    request = make_request(headers=[(b"authorization", b"Basic credentials")])
-    security_scheme = CustomSecurityScheme()
-
-    # Act: Call the security scheme
-    token = await security_scheme.__call__(request)
-
-    # Assert: Returns None
-    assert token is None
