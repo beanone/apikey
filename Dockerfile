@@ -13,14 +13,14 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire repository for package installation
-COPY . .
+# Copy only the src directory
+COPY src/ ./src/
 
-# Set version for package build
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_BEANONE_APIKEY=${VERSION}
-
-# Install the package (not in editable mode)
-RUN pip install .
+# Set environment variables
+ENV PYTHONPATH=/app/src
+ENV LOGIN_URL=http://localhost:8001
+ENV JWT_SECRET=supersecretjwtkey
+ENV JWT_ALGORITHM=HS256
 
 # Add non-root user and set permissions
 RUN adduser --disabled-password --gecos "" appuser && \

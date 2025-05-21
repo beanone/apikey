@@ -1,11 +1,15 @@
-"""Dependencies for the API key router."""
-
 import logging
 import os
 from datetime import datetime, timezone
 from typing import ClassVar
 
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import (
+    APIKeyHeader,
+    APIKeyQuery,
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 from jose import JWTError, jwt
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
@@ -57,71 +61,15 @@ get_db_session = Depends(get_async_session)
 API_KEY_HEADER = "X-API-Key"
 API_KEY_QUERY = "api_key"
 
-
-class CustomSecurityScheme:
-    """Custom security scheme that doesn't automatically validate JWT tokens."""
-
-    def __init__(self):
-        """Initialize the security scheme."""
-        self.scheme_name = "CustomSecurity"
-
-    async def __call__(self, request: Request) -> str | None:
-        """Get the token from the Authorization header without validation.
-
-        Args:
-            request: The FastAPI request.
-
-        Returns:
-            The token if present, None otherwise.
-        """
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return None
-        return auth_header.replace("Bearer ", "")
+# Security Schemes
+bearer_auth = HTTPBearer(auto_error=False)
+api_key_header = APIKeyHeader(name=API_KEY_HEADER, auto_error=False)
+api_key_query = APIKeyQuery(name=API_KEY_QUERY, auto_error=False)
 
 
-# Create custom security scheme instance
-custom_security = CustomSecurityScheme()
-
-
-async def get_current_user(
-    request: Request,
-    session: AsyncSession = get_db_session,
-) -> User:
-    """Get the current authenticated user from JWT or API key.
-
-    Args:
-        request: The FastAPI request.
-        session: The database session.
-
-    Returns:
-        User information from JWT or API key.
-
-    Raises:
-        HTTPException: If the user is not authenticated.
-    """
-    # First try API key authentication
-    api_key = await get_api_key_from_request(request)
-    if api_key:
-        print(f"Found API key in request: {api_key}")
-        user_info = await validate_api_key(api_key, session)
-        return User(
-            id=user_info["user_id"],
-            sub=user_info["user_id"],
-            email="",
-            aud="fastapi-users:auth",
-        )
-
-    # If no API key, try JWT authentication
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.warning("No valid authentication provided")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No authentication provided",
-        )
-
-    token = auth_header.replace("Bearer ", "")
+async def validate_jwt(credentials: HTTPAuthorizationCredentials) -> User:
+    """Validate JWT token."""
+    token = credentials.credentials
     try:
         payload = jwt.decode(
             token,
@@ -135,6 +83,12 @@ async def get_current_user(
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
+            )
+        if "exp" not in payload:
+            logger.warning("Token missing 'exp' claim.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing expiration",
             )
         return User(
             id=payload["sub"],
@@ -150,24 +104,7 @@ async def get_current_user(
         ) from e
 
 
-async def get_api_key_from_request(request: Request) -> str | None:
-    """Get API key from request headers or query parameters.
-
-    Args:
-        request: The FastAPI request.
-
-    Returns:
-        The API key if found, None otherwise.
-    """
-    api_key = request.headers.get(API_KEY_HEADER)
-    print(f"API key from request: {api_key}")
-    if api_key:
-        return api_key
-    api_key = request.query_params.get(API_KEY_QUERY)
-    return api_key
-
-
-async def validate_api_key(api_key: str, session: AsyncSession) -> dict[str, str]:
+async def validate_api_key(api_key: str, session: AsyncSession) -> User:
     """Validate an API key.
 
     Args:
@@ -175,7 +112,7 @@ async def validate_api_key(api_key: str, session: AsyncSession) -> dict[str, str
         session: The database session.
 
     Returns:
-        Dict containing user_id and api_key_id.
+        User: The authenticated user.
 
     Raises:
         HTTPException: If the API key is invalid or expired.
@@ -188,7 +125,10 @@ async def validate_api_key(api_key: str, session: AsyncSession) -> dict[str, str
     api_key_obj = result.scalar_one_or_none()
     if api_key_obj is None:
         logger.warning("API key not found or invalid.")
-        raise HTTPException(status_code=401, detail="Invalid API key")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+        )
     # Check if key is expired
     if api_key_obj.expires_at is not None:
         # Convert expires_at to timezone-aware UTC if it's naive
@@ -202,4 +142,35 @@ async def validate_api_key(api_key: str, session: AsyncSession) -> dict[str, str
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="API key has expired",
             )
-    return {"user_id": api_key_obj.user_id, "api_key_id": api_key_obj.id}
+    return User(
+        id=api_key_obj.user_id,
+        sub=api_key_obj.user_id,
+        email="",
+        aud="fastapi-users:auth",
+    )
+
+
+async def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_auth),  # noqa: B008
+    api_key_header_val: str | None = Depends(api_key_header),
+    api_key_query_val: str | None = Depends(api_key_query),
+    session: AsyncSession = Depends(get_async_session),  # noqa: B008
+) -> User:
+    """Get the current authenticated user from JWT or API key."""
+    # Try API key authentication (header or query)
+    api_key = api_key_header_val or api_key_query_val
+    if api_key:
+        logger.debug(f"Found API key: {api_key}")
+        return await validate_api_key(api_key, session)
+
+    # Try JWT authentication
+    if credentials:
+        logger.debug("Found JWT credentials")
+        return await validate_jwt(credentials)
+
+    logger.warning("No valid authentication provided")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No authentication provided",
+    )

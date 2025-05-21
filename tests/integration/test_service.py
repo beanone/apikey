@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-class TestOAuth2PasswordBearer(OAuth2PasswordBearer):
+class _TestOAuth2PasswordBearer(OAuth2PasswordBearer):
     """Test-specific OAuth2 scheme that doesn't require a login service."""
 
     async def __call__(self, request):
@@ -120,7 +120,7 @@ def app():
     app = create_app()
 
     # Override the OAuth2 scheme for testing
-    app.dependency_overrides[OAuth2PasswordBearer] = TestOAuth2PasswordBearer
+    app.dependency_overrides[OAuth2PasswordBearer] = _TestOAuth2PasswordBearer
 
     # Override the settings to not require a login service
     from apikey.dependencies import get_settings
@@ -130,6 +130,26 @@ def app():
         "http://test"  # Use a dummy URL since we're mocking the auth
     )
     app.dependency_overrides[get_settings] = lambda: original_settings
+
+    # Mock get_current_user to return a test user
+    from apikey.dependencies import get_current_user
+    from apikey.models import User
+
+    async def mock_get_current_user(
+        request=None,
+        credentials=None,
+        api_key_header_val=None,
+        api_key_query_val=None,
+        session=None,
+    ):
+        return User(
+            id="test-user-1",
+            sub="test-user-1",
+            email="test@example.com",
+            aud="fastapi-users:auth",
+        )
+
+    app.dependency_overrides[get_current_user] = mock_get_current_user
 
     return app
 
@@ -370,12 +390,27 @@ async def test_auth_jwt(async_client, test_user, test_api_key, test_token):
 
 @pytest.mark.asyncio
 async def test_auth_api_key(async_client, test_user, test_api_key, test_token):
-    """Test deleting an API key with a real database."""
-    logger.debug(f"Testing delete API key with token: {test_token}")
-    response = await async_client.get(
-        "/api/v1/api-keys/test-auth", headers={"X-API-Key": f"{test_api_key}"}
-    )
+    """Test API key authentication."""
+    logger.debug(f"Testing API key auth with key: {test_api_key}")
+
+    # Print request details
+    headers = {"X-API-Key": f"{test_api_key}"}
+    logger.debug(f"Request headers: {headers}")
+
+    response = await async_client.get("/api/v1/api-keys/test-auth", headers=headers)
+
+    # Print response details
     logger.debug(f"Response status: {response.status_code}")
+    logger.debug(f"Response headers: {dict(response.headers)}")
     logger.debug(f"Response body: {response.text}")
+
+    # Print database state
+    async with DBState.async_session_maker() as session:
+        result = await session.execute(
+            text("SELECT * FROM api_keys WHERE id = 'test-key-1'")
+        )
+        row = result.first()
+        logger.debug(f"Database state for test-key-1: {row}")
+
     assert response.status_code == 200
     assert response.json() == {"status": "success"}
